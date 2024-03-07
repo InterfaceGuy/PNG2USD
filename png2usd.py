@@ -1,49 +1,40 @@
-import sys
-from PIL import Image
-from pxr import Usd, UsdGeom, Sdf
+import bpy
+import os
 
-def create_usda_and_convert_to_usdz(png_path):
-    # Load the image to get its dimensions
-    with Image.open(png_path) as img:
-        width, height = img.size
+# Set the file paths
+png_file = "test.png"
+usdz_file = "test.usdz"
 
-    # Calculate the plane dimensions based on the image dimensions
-    plane_width = width / max(width, height)
-    plane_height = height / max(width, height)
+# Load the PNG image as a texture
+image = bpy.data.images.load(png_file)
+texture = bpy.data.textures.new('ImageTexture', type='IMAGE')
+texture.image = image
 
-    # Define the output paths
-    usda_path = png_path.rsplit('.', 1)[0] + '.usda'
-    usdz_path = png_path.rsplit('.', 1)[0] + '.usdz'
+# Create a new scene
+scene = bpy.context.scene
 
-    # Create a new stage
-    stage = Usd.Stage.CreateNew(usda_path)
+# Get the dimensions of the PNG image
+width, height = image.size
 
-    # Define the Mesh
-    mesh = UsdGeom.Mesh.Define(stage, '/Plane')
-    mesh.CreatePointsAttr([(-plane_width / 2, 0, 0), (plane_width / 2, 0, 0), (plane_width / 2, plane_height, 0), (-plane_width / 2, plane_height, 0)])
-    mesh.CreateFaceVertexCountsAttr([4])
-    mesh.CreateFaceVertexIndicesAttr([0, 1, 2, 3])
-    mesh.CreatePrimvar("st", Sdf.ValueTypeNames.TexCoord2fArray, UsdGeom.Tokens.varying).Set([(0, 0), (1, 0), (1, 1), (0, 1)])
+# Create a new plane with the dimensions of the PNG image
+bpy.ops.mesh.primitive_plane_add(size=1, calc_uvs=True)
+plane = bpy.context.active_object
+plane.scale = (width / 100, height / 100, 1)  # Scale the plane to match the image dimensions
+plane.data.materials.append(bpy.data.materials.new(name="ImageMaterial"))
+plane.data.materials["ImageMaterial"].use_nodes = True
+plane.data.materials["ImageMaterial"].node_tree.nodes["Principled BSDF"].inputs[0].default_value = (1, 1, 1, 1)  # Set the base color to white
 
-    # Create Material and Shader
-    material = UsdGeom.Material.Define(stage, '/PlaneMaterial')
-    shader = Usd.Shader.Define(stage, '/PlaneMaterial/Shader')
-    shader.CreateIdAttr("UsdPreviewSurface")
-    shader.CreateInput("diffuseTexture", Sdf.ValueTypeNames.Asset).Set(png_path)
-    UsdShade.MaterialBindingAPI(mesh.GetPrim()).Bind(material)
+# Set the texture
+texture_node = plane.data.materials["ImageMaterial"].node_tree.nodes.new("ShaderNodeTexImage")
+texture_node.image = image
+plane.data.materials["ImageMaterial"].node_tree.links.new(
+    texture_node.outputs["Color"], plane.data.materials["ImageMaterial"].node_tree.nodes["Principled BSDF"].inputs["Base Color"]
+)
 
-    # Save the stage
-    stage.GetRootLayer().Save()
+# Enable transparency
+plane.data.materials["ImageMaterial"].blend_method = 'BLEND'
 
-    print(f"Saved .usda file at {usda_path}")
+# Save the USDZ file
+bpy.ops.wm.usd_export(filepath=usdz_file, export_materials=True)
 
-    # Convert .usda to .usdz using usd-core
-    stage.Export(usdz_path)
-    print(f"Converted .usda to .usdz at {usdz_path}")
-
-# Example usage
-if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python script.py <path_to_png>")
-    else:
-        create_usda_and_convert_to_usdz(sys.argv[1])
+print(f"USDZ file created: {usdz_file}")
