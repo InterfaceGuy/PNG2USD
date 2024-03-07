@@ -8,3 +8,5 @@ pain points:
 - blender GUI opens unnecessarily
 - cube is added
 - requires complicated command to execute (see above)
+  
+claude chat: https://claude.ai/chat/31490a6c-6e1c-499b-a8bb-4867dabae8d6
