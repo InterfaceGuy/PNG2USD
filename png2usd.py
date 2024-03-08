@@ -13,6 +13,10 @@ texture.image = image
 # Create a new scene
 scene = bpy.context.scene
 
+# Delete the default cube
+bpy.ops.object.select_all(action='SELECT')
+bpy.ops.object.delete()
+
 # Get the dimensions of the PNG image
 width, height = image.size
 
